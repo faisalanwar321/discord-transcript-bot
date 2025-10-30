@@ -19,7 +19,7 @@ const notion = new NotionClient({ auth: NOTION_TOKEN });
 
 async function parseTranscript(htmlUrl) {
   try {
-    console.log(`📥 Downloading: ${htmlUrl}`);
+    console.log('[INFO] Downloading transcript from:', htmlUrl);
     
     const response = await fetch(htmlUrl);
     const htmlContent = await response.text();
@@ -29,7 +29,7 @@ async function parseTranscript(htmlUrl) {
     const serverMatch = htmlContent.match(/let server = "([^"]+)"/);
     
     if (!messagesMatch) {
-      throw new Error('No messages found');
+      throw new Error('No messages found in transcript');
     }
     
     const messagesJSON = Buffer.from(messagesMatch[1], 'base64').toString('utf-8');
@@ -46,7 +46,9 @@ async function parseTranscript(htmlUrl) {
       serverName = JSON.parse(Buffer.from(serverMatch[1], 'base64').toString('utf-8')).name;
     }
     
-    let transcript = `📋 Server: ${serverName}\n📌 Channel: ${channelName}\n\n━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    let transcript = 'Server: ' + serverName + '\n';
+    transcript += 'Channel: ' + channelName + '\n\n';
+    transcript += '========================================\n\n';
     
     let userMsgCount = 0;
     
@@ -61,27 +63,30 @@ async function parseTranscript(htmlUrl) {
           timeStyle: 'short'
         });
         
-        transcript += `🕐 ${time}\n👤 ${username}\n💬 ${content}\n\n`;
+        transcript += '[' + time + '] ' + username + ':\n';
+        transcript += content + '\n\n';
         userMsgCount++;
       }
     });
     
+    console.log('[INFO] Parsed', userMsgCount, 'user messages');
+    
     return {
-      transcript,
+      transcript: transcript,
       ticketName: channelName,
-      serverName,
+      serverName: serverName,
       messageCount: userMsgCount
     };
     
   } catch (error) {
-    console.error('❌ Parse error:', error);
+    console.error('[ERROR] Parse error:', error.message);
     throw error;
   }
 }
 
 async function sendToNotion(data, transcriptUrl, embedData) {
   try {
-    console.log(`📤 Sending to Notion: ${data.ticketName}`);
+    console.log('[INFO] Sending to Notion:', data.ticketName);
     
     const ticketOwner = embedData.fields.find(f => f.name === 'Ticket Owner')?.value || 'Unknown';
     const panelName = embedData.fields.find(f => f.name === 'Panel Name')?.value || 'Unknown';
@@ -119,14 +124,14 @@ async function sendToNotion(data, transcriptUrl, embedData) {
       ]
     });
     
-    console.log(`✅ Saved: ${response.url}`);
+    console.log('[SUCCESS] Saved to Notion:', response.url);
     return response;
     
   } catch (error) {
-    console.error('❌ Notion error:', error.message);
+    console.error('[ERROR] Notion error:', error.message);
     
     if (error.code === 'validation_error') {
-      console.log('⚠️ Retrying with minimal properties...');
+      console.log('[WARN] Retrying with minimal properties...');
       
       const response = await notion.pages.create({
         parent: { database_id: NOTION_DATABASE_ID },
@@ -146,7 +151,7 @@ async function sendToNotion(data, transcriptUrl, embedData) {
         ]
       });
       
-      console.log(`✅ Saved (minimal): ${response.url}`);
+      console.log('[SUCCESS] Saved with minimal properties:', response.url);
       return response;
     }
     
@@ -155,9 +160,9 @@ async function sendToNotion(data, transcriptUrl, embedData) {
 }
 
 discordClient.once('ready', () => {
-  console.log(`🤖 Bot: ${discordClient.user.tag}`);
-  console.log(`📺 Monitoring: ${ARCHIVE_CHANNEL_ID}`);
-  console.log(`✅ Ready!`);
+  console.log('[BOT] Logged in as:', discordClient.user.tag);
+  console.log('[BOT] Monitoring channel ID:', ARCHIVE_CHANNEL_ID);
+  console.log('[BOT] Ready and listening for transcripts!');
 });
 
 discordClient.on('messageCreate', async (message) => {
@@ -170,11 +175,11 @@ discordClient.on('messageCreate', async (message) => {
     
     if (!htmlAttachment) return;
     
-    console.log(`\n🎫 New transcript: ${htmlAttachment.name}`);
+    console.log('[TRANSCRIPT] New transcript detected:', htmlAttachment.name);
     
     const embed = message.embeds[0];
     if (!embed) {
-      console.log('⚠️ No embed');
+      console.log('[WARN] No embed found, skipping');
       return;
     }
     
@@ -182,41 +187,25 @@ discordClient.on('messageCreate', async (message) => {
     await sendToNotion(parsed, htmlAttachment.url, embed);
     await message.react('✅');
     
+    console.log('[SUCCESS] Transcript processed successfully');
+    
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('[ERROR] Failed to process transcript:', error.message);
     try {
       await message.react('❌');
-    } catch (e) {}
+    } catch (e) {
+      console.error('[ERROR] Could not add reaction:', e.message);
+    }
   }
 });
 
 discordClient.on('error', error => {
-  console.error('❌ Discord error:', error);
+  console.error('[ERROR] Discord client error:', error.message);
 });
 
 process.on('unhandledRejection', error => {
-  console.error('❌ Unhandled:', error);
+  console.error('[ERROR] Unhandled promise rejection:', error);
 });
 
-console.log('🚀 Starting bot...');
+console.log('[STARTUP] Starting Discord bot...');
 discordClient.login(DISCORD_TOKEN);
-```
-
-4. **Commit changes**
-
----
-
-### **3. Railway auto-redeploy**
-
-Setelah commit, Railway otomatis redeploy dengan code yang baru.
-
----
-
-### **4. Check logs lagi**
-
-Tunggu 30 detik, cek logs Railway. Harusnya muncul:
-```
-🚀 Starting bot...
-🤖 Bot: Transcript Bot#1234
-📺 Monitoring: 1432584056750477374
-✅ Ready!
