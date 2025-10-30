@@ -1,0 +1,17 @@
+{
+  "name": "discord-transcript-bot",
+  "version": "1.0.0",
+  "description": "Bot to parse TicketTool transcripts to Notion",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "@notionhq/client": "^2.2.15",
+    "node-fetch": "^2.7.0"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
