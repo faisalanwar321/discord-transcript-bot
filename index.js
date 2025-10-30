@@ -2,13 +2,11 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const { Client: NotionClient } = require('@notionhq/client');
 const fetch = require('node-fetch');
 
-// Environment variables
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const NOTION_TOKEN = process.env.NOTION_TOKEN;
 const NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID;
 const ARCHIVE_CHANNEL_ID = process.env.ARCHIVE_CHANNEL_ID;
 
-// Initialize clients
 const discordClient = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -19,7 +17,6 @@ const discordClient = new Client({
 
 const notion = new NotionClient({ auth: NOTION_TOKEN });
 
-// Parse TicketTool transcript
 async function parseTranscript(htmlUrl) {
   try {
     console.log(`📥 Downloading: ${htmlUrl}`);
@@ -27,7 +24,6 @@ async function parseTranscript(htmlUrl) {
     const response = await fetch(htmlUrl);
     const htmlContent = await response.text();
     
-    // Extract base64
     const messagesMatch = htmlContent.match(/let messages = "([^"]+)"/);
     const channelMatch = htmlContent.match(/let channel = "([^"]+)"/);
     const serverMatch = htmlContent.match(/let server = "([^"]+)"/);
@@ -36,7 +32,6 @@ async function parseTranscript(htmlUrl) {
       throw new Error('No messages found');
     }
     
-    // Decode
     const messagesJSON = Buffer.from(messagesMatch[1], 'base64').toString('utf-8');
     const messages = JSON.parse(messagesJSON);
     
@@ -51,7 +46,6 @@ async function parseTranscript(htmlUrl) {
       serverName = JSON.parse(Buffer.from(serverMatch[1], 'base64').toString('utf-8')).name;
     }
     
-    // Build transcript
     let transcript = `📋 Server: ${serverName}\n📌 Channel: ${channelName}\n\n━━━━━━━━━━━━━━━━━━━━━━\n\n`;
     
     let userMsgCount = 0;
@@ -85,7 +79,6 @@ async function parseTranscript(htmlUrl) {
   }
 }
 
-// Send to Notion
 async function sendToNotion(data, transcriptUrl, embedData) {
   try {
     console.log(`📤 Sending to Notion: ${data.ticketName}`);
@@ -132,7 +125,6 @@ async function sendToNotion(data, transcriptUrl, embedData) {
   } catch (error) {
     console.error('❌ Notion error:', error.message);
     
-    // Retry with minimal properties
     if (error.code === 'validation_error') {
       console.log('⚠️ Retrying with minimal properties...');
       
@@ -162,14 +154,12 @@ async function sendToNotion(data, transcriptUrl, embedData) {
   }
 }
 
-// Discord ready
 discordClient.once('ready', () => {
   console.log(`🤖 Bot: ${discordClient.user.tag}`);
   console.log(`📺 Monitoring: ${ARCHIVE_CHANNEL_ID}`);
   console.log(`✅ Ready!`);
 });
 
-// Monitor messages
 discordClient.on('messageCreate', async (message) => {
   try {
     if (message.channel.id !== ARCHIVE_CHANNEL_ID) return;
@@ -200,7 +190,6 @@ discordClient.on('messageCreate', async (message) => {
   }
 });
 
-// Error handling
 discordClient.on('error', error => {
   console.error('❌ Discord error:', error);
 });
@@ -209,9 +198,25 @@ process.on('unhandledRejection', error => {
   console.error('❌ Unhandled:', error);
 });
 
-// Start
 console.log('🚀 Starting bot...');
 discordClient.login(DISCORD_TOKEN);
 ```
 
+4. **Commit changes**
 
+---
+
+### **3. Railway auto-redeploy**
+
+Setelah commit, Railway otomatis redeploy dengan code yang baru.
+
+---
+
+### **4. Check logs lagi**
+
+Tunggu 30 detik, cek logs Railway. Harusnya muncul:
+```
+🚀 Starting bot...
+🤖 Bot: Transcript Bot#1234
+📺 Monitoring: 1432584056750477374
+✅ Ready!
